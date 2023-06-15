@@ -1,0 +1,37 @@
+* DONE learn neural supersampling for real-time rendering
+
+* DONE learn High-Quality Supersampling via Mask-reinforced Deep Learning for Real-time Rendering
+
+
+* DONE study neural supersampling for real-time rendering 
+
+
+* DONE learn code
+
+
+* DONE run code
+
+** DONE run train 1 epoch, small samples
+
+problem:
+- loss error
+
+1.set preTrained=false
+2.download vgg16
+3.load model
+
+
+- output is empty
+value is target * 1/10
+
+should print in 1,2 epoch and compare the whether output value increase!?
+
+
+** DONE run test
+
+
+
+* TODO learn detail
+
+
+* TODO implement inference by webnn
