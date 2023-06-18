@@ -65,7 +65,7 @@ class Trainer(BaseTrainer):
 
             # TODO remove
             print(batch_idx, self.len_epoch)
-            if batch_idx == 1:
+            if batch_idx == 2:
                 break
 
             if batch_idx == self.len_epoch:

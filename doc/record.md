@@ -13,7 +13,28 @@ in Unreal
 
 256 × 256 patch
 
+
+
+# 代码解读
+
+"node:"是我加入的注释
+
+
+
+5 previous frames
+
+input->motion is optical flow, should convert it to motion vector
+
+not use 256 x 256 patch, directly use whole:(120, 180)?
+
+
 # future
+
+
+
+- color div, multi albedo?
+
+
 
 - 可以结合Neural Supersampling for Real-time Rendering、High-Quality Supersampling via Mask-reinforced Deep Learning for Real-time Rendering，从而获得16*4=64倍的像素提升！
 
@@ -22,7 +43,7 @@ in Unreal
 2.用后者，重建为512*256
 3.用前者，放大为512*256*16的分辨率
 
+- not use motion vector?
 
-
-- color div, multi albedo?
-
+refer to:
+[Fast Temporal Reprojection without Motion Vectors](https://www.google.com/search?q=Fast+Temporal+Reprojection+without+Motion+Vectors&oq=Fast+Temporal+Reprojection+without+Motion+Vectors&aqs=chrome..69i57.138j0j7&sourceid=chrome&ie=UTF-8)

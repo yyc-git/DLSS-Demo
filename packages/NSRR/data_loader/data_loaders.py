@@ -102,6 +102,9 @@ class NSRRDataset(Dataset):
             img_depth = tv.transforms.functional.resize(img_depth, [HH, WW])
             img_flow = tv.transforms.functional.resize(img_flow, [HH, WW])
             img_flow.unsqueeze_(0)
+
+            # TODO note: generate converted Motion .pngs which replace old ones for test
+
             img_flow = optical_flow_to_motion(img_flow)
             img_flow.squeeze_(0)
             img_view_list.append(img_view.unsqueeze(1))

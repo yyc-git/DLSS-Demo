@@ -16,6 +16,22 @@ from pytorch_colors import rgb_to_hsv
 
 
 def backward_warp_motion(img: torch.Tensor, motion: torch.Tensor) -> torch.Tensor:
+    # note: 
+    # suppose img_grid = (img_grid_x(range: [0,1]), img_grid_y(range: [0,1])) in img, motion = (current_frame_grid_x - last_frame_grid_x, current_frame_grid_y - last_frame_grid_y) 
+
+    ## 1.current_frame_grid = grid + motion
+    ## ////2.wrap_img = current_frame_img
+    ## 2.wrap_img = img
+    ## 3.if(current_frame_grid in size)  wrap_img[current_frame_grid] = bilinear(img[grid])
+
+    # 1. last_frame_grid = (img_grid_x, img_grid_y) - motion[img_grid_x, img_grid_y] 
+    # 2.wrap_img = img
+    # 3.if(last_frame_grid in size)  wrap_img[img_grid_x, img_grid_y] = bilinear(img[last_frame_grid])
+
+
+
+
+
     # see: https://discuss.pytorch.org/t/image-warping-for-backward-flow-using-forward-flow-matrix-optical-flow/99298
     # input image is: [batch, channel, height, width]
     index_batch, number_channels, height, width = img.size()

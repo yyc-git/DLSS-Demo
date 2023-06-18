@@ -57,6 +57,10 @@ class NSRRModel(BaseModel):
     def motion_warping_function(self, img, motion):
         return backward_warp_motion(img, motion)
     def forward(self, x_view, x_depth, x_flow):
+        # note: no YcbCr convertion
+
+        # note: first input is current frame, second input is current frame - 1, ...
+
         # 1°) extract features
         all_rgbd = torch.cat((x_view, x_depth), dim=1)
         all_features = self.feature_extract_model(all_rgbd)
@@ -65,35 +69,69 @@ class NSRRModel(BaseModel):
         # 2°) upsample features
         all_features_upsampled = self.zero_upsampling_function(all_features)
         all_features_upsampled_for_reweighting = self.zero_upsampling_function(all_rgbd)
+
+
+
+        # note: not warp
         
         # 3°) we need to convert from optical flow
-        all_flow_upsampled = self.motion_upsampling_function(x_flow)
+        # all_flow_upsampled = self.motion_upsampling_function(x_flow)
+
 
         # 4°) warp previous features and motion recursively
-        list_previous_motion_from_current = [all_flow_upsampled[:, :, 0, :, :]]
-        # back warp motion
-        for i in range(1, self.number_previous_frames):
-            list_previous_motion_from_current.append(
-                self.motion_warping_function(
-                    all_flow_upsampled[:,:,i,:,:],
-                    list_previous_motion_from_current[-1]
-                )
-            )
+        # list_previous_motion_from_current = [all_flow_upsampled[:, :, 0, :, :]]
 
-        # back warp feature
-        list_previous_features_warped = [] # nn.paramList
-        for i in range(self.number_previous_frames):
-            list_previous_features_warped.append(
-                self.motion_warping_function(
-                    all_features_upsampled[:,:,i,:,:],
-                    list_previous_motion_from_current[i]
-                )
-            )
+        # # note:累积Motion Vector?
+        # # back warp motion
+        # for i in range(1, self.number_previous_frames):
+        #     list_previous_motion_from_current.append(
+        #         self.motion_warping_function(
+        #             all_flow_upsampled[:,:,i,:,:],
+        #             list_previous_motion_from_current[-1]
+        #         )
+        #     )
+
+        # # back warp feature
+        # list_previous_features_warped = [] # nn.paramList
+        # for i in range(self.number_previous_frames):
+        #     list_previous_features_warped.append(
+        #         self.motion_warping_function(
+        #             all_features_upsampled[:,:,i,:,:],
+        #             list_previous_motion_from_current[i]
+        #         )
+        #     )
+
+
+
+
+        # # note: change to accu
+
+        # all_motionVector_upsampled = all_flow_upsampled
+
+        # list_previous_features_warped = []
+        # for i in range(0, self.number_previous_frames):
+        #     accu_previous_feature_warped  = all_features_upsampled[:,:,i + 1,:,:]
+
+        #     for j in range(0, i):
+        #         accu_previous_feature_warped = self.motion_warping_function(
+        #             accu_previous_feature_warped,
+        #             all_motionVector_upsampled[:,:,i - j,:,:]
+        #         )
+
+            # list_previous_features_warped.append(accu_previous_feature_warped)
+
+
 
         # 5°) reweight features of previous frames
+
+        list_previous_features = []
+        for i in range(0, self.number_previous_frames):
+            list_previous_features.append(all_features_upsampled[:,:,i + 1,:,:])
+
         list_previous_features_reweighted = self.feature_reweighting_model.forward(
             all_features_upsampled_for_reweighting[:,:,0,:,:],
-            list_previous_features_warped
+            # note: not use warp
+            list_previous_features
         )
 
         # 6°) reconstruction 
