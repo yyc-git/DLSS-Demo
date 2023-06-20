@@ -12,17 +12,3 @@ npm-debug
 .bsb.lock
 
 yarn.lock
-
-
-example/
-
-# output/
-
-vgg16/
-
-.txt
-
-__pycache__/
-
-saved/log/
-saved/models/

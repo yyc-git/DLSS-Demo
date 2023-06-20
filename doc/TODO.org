@@ -31,7 +31,7 @@ should print in 1,2 epoch and compare the whether output value increase!?
 
 
 
-* TODO learn detail
+* DONE learn detail
 
 why need frames?
 ans: for temporal stable 
@@ -61,9 +61,18 @@ code in Wonder.js->master branch
 
 generate input(.png) for train and inference
 
+    motion vector .png should preprocess data:
+    1./ 10
+    2.to [0,1]  
+
 * TODO implement NSRR DLSS with path tracer
 
 generate input(.png) for train and inference
+
+    motion vector .png should preprocess data:
+    1./ 10
+    2.to [0,1]  
+
 
 
 # ** TODO change Motion input to accu current frame ClipPosition input
