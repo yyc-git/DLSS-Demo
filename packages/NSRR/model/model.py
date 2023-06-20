@@ -124,9 +124,13 @@ class NSRRModel(BaseModel):
 
         # 5°) reweight features of previous frames
 
+        # note: my add code
         list_previous_features = []
         for i in range(0, self.number_previous_frames):
             list_previous_features.append(all_features_upsampled[:,:,i + 1,:,:])
+
+
+
 
         list_previous_features_reweighted = self.feature_reweighting_model.forward(
             all_features_upsampled_for_reweighting[:,:,0,:,:],
@@ -180,6 +184,8 @@ class NSRRFeatureReweightingModel(BaseModel):
         padding = 1
 
         process_seq = nn.Sequential(
+            # note: why not use 32 instead of 40?
+
             nn.Conv2d(24, 40, kernel_size=kernel_size, padding=padding),
             nn.ReLU(),
             nn.Conv2d(40, 40, kernel_size=kernel_size, padding=padding),
@@ -204,6 +210,8 @@ class NSRRFeatureReweightingModel(BaseModel):
         # list_previous_features_warped = [7, 5, 480, 720] * 5
         reweight_feed_in = current_features_upsampled_for_reweighting
         for previous_features_warped in list_previous_features_warped:
+            print(previous_features_warped.shape)
+            print(previous_features_warped[:,:4].shape)
             reweight_feed_in = torch.cat((reweight_feed_in, previous_features_warped[:,:4]), dim=1)
         
         weighting_map = self.weighting(reweight_feed_in)
@@ -241,10 +249,20 @@ class NSRRReconstructionModel(BaseModel):
         assert(number_previous_frames > 0)
         # This is constant throughout the life of a model.
         self.number_previous_frames = number_previous_frames
+
+        # encoder1 = nn.Sequential(
+        #     nn.Conv2d(72, 32, kernel_size=kernel_size, padding=padding),
+        #     nn.ReLU(),
+        # )
+
+        # note: add first conv
         encoder1 = nn.Sequential(
-            nn.Conv2d(72, 32, kernel_size=kernel_size, padding=padding),
+            nn.Conv2d(72, 64, kernel_size=kernel_size, padding=padding),
+            nn.ReLU(),
+            nn.Conv2d(64, 32, kernel_size=kernel_size, padding=padding),
             nn.ReLU(),
         )
+
         encoder2 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=kernel_size, padding=padding),
             nn.ReLU(),
@@ -262,10 +280,10 @@ class NSRRReconstructionModel(BaseModel):
             nn.Conv2d(192, 128, kernel_size=kernel_size, padding=padding),
             nn.ReLU()
         )
-        cat_2 = nn.Sequential(
-            nn.Conv2d(96, 64, kernel_size=kernel_size, padding=padding),
-            nn.ReLU()
-        )
+        # cat_2 = nn.Sequential(
+        #     nn.Conv2d(96, 64, kernel_size=kernel_size, padding=padding),
+        #     nn.ReLU()
+        # )
         decoder2 = nn.Sequential(
             nn.Conv2d(128, 64, kernel_size=kernel_size, padding=padding),
             nn.ReLU(),
@@ -273,9 +291,19 @@ class NSRRReconstructionModel(BaseModel):
             nn.ReLU(),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
+        # decoder1 = nn.Sequential(
+        #     nn.Conv2d(64, 32, kernel_size=kernel_size, padding=padding),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 3, kernel_size=kernel_size, padding=padding),
+        #     nn.ReLU()
+        # )
+
+        # note: unify with article
+        cat_2 = nn.Sequential(
+            nn.Conv2d(96, 32, kernel_size=kernel_size, padding=padding),
+            nn.ReLU()
+        )
         decoder1 = nn.Sequential(
-            nn.Conv2d(64, 32, kernel_size=kernel_size, padding=padding),
-            nn.ReLU(),
             nn.Conv2d(32, 3, kernel_size=kernel_size, padding=padding),
             nn.ReLU()
         )
