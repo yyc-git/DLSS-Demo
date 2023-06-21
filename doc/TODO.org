@@ -45,6 +45,11 @@ yes
 
 
 
+# * TODO implement type
+
+TODO define MLGraphBuilder
+use dependent type!
+
 
 * TODO implement inference by webnn
 
