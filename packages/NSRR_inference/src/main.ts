@@ -36,54 +36,54 @@ let _drawOutput = (outputBuffer, [width, height]) => {
     document.body.append(outCanvas)
 }
 
-window.onload = async () => {
-    let downscale = [4, 4]
-    let [width, height] = [720, 480]
-    let [downscaledWidth, downscaledHeight] = [width / downscale[0], height / downscale[1]]
+// window.onload = async () => {
+//     let downscale = [4, 4]
+//     let [upsampledWidth, upsampledHeight] = [720, 480]
+//     let [width, height] = [upsampledWidth / downscale[0], upsampledHeight / downscale[1]]
 
-    let state = createState()
+//     let state = createState()
 
-    let [
-        view_tensors,
-        depth_tensors
-    ] = await loadInputs([downscaledWidth, downscaledHeight])
+//     let [
+//         view_tensors,
+//         depth_tensors
+//     ] = await loadInputs([width, height])
 
-    state = await init(state, {
-        deviceType: "gpu"
-    })
+//     state = await init(state, {
+//         deviceType: "gpu"
+//     })
 
-    let view_tensor = state.builder.concat(view_tensors, 0)
-    let depth_tensor = state.builder.concat(depth_tensors, 0)
-
-
-    state = createComputeGraphOfInput(state,
-        [downscaledWidth, downscaledHeight]
-    )
-    state = createComputeGraphOfFeatureExtract(state,
-        // [
-        //     await buildConstantByNpy(state.builder, conv1Weight_path),
-        //     await buildConstantByNpy(state.builder, conv2Weight_path), await buildConstantByNpy(state.builder, conv3Weight_path), await buildConstantByNpy(state.builder, conv4Weight_path), await buildConstantByNpy(state.builder, conv5Weight_path), await buildConstantByNpy(state.builder, convFinalWeight_path),
-        // ]
-        TODO weights
-    )
-    state = createComputeGraphOfZeroUpsampling(state,)
-    state = createComputeGraphOfFeatureReweighting(state, TODO weights)
-    state = createComputeGraphOfReconstruction(state, TODO weights)
-
-    state = await build(state, state.output)
-
-    let outputBuffer = new Float32Array(sizeOfShape([1, 3, width, height]));
-
-    let results
-    //warm up
-    results = await compute(state, view_tensor, depth_tensor, outputBuffer)
-
-    let start = performance.now();
-    results = await compute(state, view_tensor, depth_tensor, outputBuffer)
-    console.log(performance.now() - start)
+//     let view_tensor = state.builder.concat(view_tensors, 0)
+//     let depth_tensor = state.builder.concat(depth_tensors, 0)
 
 
-    // console.log(results.outputs.output)
+//     state = createComputeGraphOfInput(state,
+//         [width, height]
+//     )
+//     state = createComputeGraphOfFeatureExtract(state,
+//         // [
+//         //     await buildConstantByNpy(state.builder, conv1Weight_path),
+//         //     await buildConstantByNpy(state.builder, conv2Weight_path), await buildConstantByNpy(state.builder, conv3Weight_path), await buildConstantByNpy(state.builder, conv4Weight_path), await buildConstantByNpy(state.builder, conv5Weight_path), await buildConstantByNpy(state.builder, convFinalWeight_path),
+//         // ]
+//         TODO weights
+//     )
+//     state = createComputeGraphOfZeroUpsampling(state,)
+//     state = createComputeGraphOfFeatureReweighting(state, TODO weights)
+//     state = createComputeGraphOfReconstruction(state, TODO weights)
 
-    _drawOutput(results.outputs.output, [width, height])
-}
+//     state = await build(state, state.output)
+
+//     let outputBuffer = new Float32Array(sizeOfShape([1, 3, upsampledWidth, upsampledHeight]));
+
+//     let results
+//     //warm up
+//     results = await compute(state, view_tensor, depth_tensor, outputBuffer)
+
+//     let start = performance.now();
+//     results = await compute(state, view_tensor, depth_tensor, outputBuffer)
+//     console.log(performance.now() - start)
+
+
+//     // console.log(results.outputs.output)
+
+//     _drawOutput(results.outputs.output, [upsampledWidth, upsampledHeight])
+// }

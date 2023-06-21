@@ -53,8 +53,14 @@ use dependent type!
 
 * TODO implement inference by webnn
 
+bdd test
+
+run test
 
 
+* TODO video
+
+* TODO write article
 
 * TODO implement path tracer by webgpu + lbvh
 

@@ -1,7 +1,9 @@
 import '@webmachinelearning/webnn-polyfill'
 import { range } from './common/Array'
 import { buildConstantByNpy, sizeOfShape } from "./common/utils"
-import { height, Filter, Tensor, width, state, upsampledHeight, upsampledWidth, MLOprand, pool1Width, pool1Height, pool2Height, pool2Width } from './type'
+import { MLOprand, height, Filter, Tensor, width, state, upsampledHeight, upsampledWidth, pool1Width, pool1Height, pool2Height, pool2Width } from './type'
+import { Mult } from "./metatype"
+// import { getDimensions } from './TensorUtils'
 
 //create state
 
@@ -10,12 +12,55 @@ export let createState = (): state => {
         context: null,
         builder: null,
         graph: null,
+        frameCount: 6,
+        width: 180,
+        height: 120,
+        weightForZeroUpsampling: null,
         input_view: null,
         input_depth: null,
         all_features: null,
         all_features_upsampled: null,
         arr_last_features_reweighted: null,
         output: null
+    }
+}
+
+export let _prepareWeightForZeroUpsampling = <C extends number>(state: state, c: C): state => {
+    // refer to: https://github.com/pytorch/pytorch/issues/7911#issuecomment-392835113
+
+    let builder = state.builder
+
+    let dimension = [1, 1, 4, 4]
+    let value0 = new Float32Array(sizeOfShape(dimension)).fill(0.0)
+    let value1 = new Float32Array(sizeOfShape(dimension)).fill(0.0)
+    value1[0] = 1.0
+
+    let weightArr: Array<Filter<1, typeof c, 4, 4>> = range(0, c - 1).map(i => {
+        let arr = range(0, c - 1).reduce((result, j) => {
+            if (i === j) {
+                result[j] = builder.constant(
+                    { type: 'float32', dimensions: dimension },
+                    value1
+                )
+            }
+            else {
+                result[j] = builder.constant(
+                    { type: 'float32', dimensions: dimension },
+                    value0
+                )
+            }
+
+            return result
+        }, [])
+
+        return builder.concat(arr, 1)
+    })
+
+    let weight: Filter<typeof c, typeof c, 4, 4> = builder.concat(weightArr, 0)
+
+    return {
+        ...state,
+        weightForZeroUpsampling: weight
     }
 }
 
@@ -32,11 +77,13 @@ export let init = async (state, contextOptions) => {
 
     let builder = new MLGraphBuilder(context)
 
-    return {
+    state = {
         ...state,
         context,
         builder,
     }
+
+    return _prepareWeightForZeroUpsampling(state, 12)
 }
 
 export let createComputeGraphOfInput = (state, [width, height]) => {
@@ -116,47 +163,34 @@ export let createComputeGraphOfFeatureExtract = (state, weights): Tensor<6, 12, 
     }
 }
 
-//TODO need bdd test
-export let createComputeGraphOfZeroUpsampling = (state: state) => {
-    let {
-        builder,
-        all_features
-    } = state
-
+export let _zeroUpsampling = <N extends number, C extends number, H extends number, W extends number>(builder, tensor: Tensor<N, C, H, W>, weightForZeroUpsampling, n: N, c: C, h: H, w: W): Tensor<N, C, Mult<H, 4>, Mult<W, 4>> => {
     // refer to: https://github.com/pytorch/pytorch/issues/7911#issuecomment-392835113
 
-    let dimension = [1, 1, 4, 4]
-    let value = new Float32Array(sizeOfShape(dimension)).fill(0.0)
-    value[0] = 1.0
-    let weightArr = range(0, 11).reduce((result, i) => {
-        result.push(
-            builder.constant(
-                { type: 'float32', dimensions: dimension },
-                value
-            )
-        )
-
-        return result
-    }, [])
-    let weight: Filter<1, 12, 4, 4> = builder.concat(weightArr, 1)
-
-    let all_features_upsampled: Tensor<6, 12, upsampledHeight, upsampledWidth> = builder.concat(
-        range(0, 6 - 1).map(i => {
+    return builder.concat(
+        range(0, n - 1).map(i => {
             return builder.convTranspose2d(
-                builder.slice(all_features, [i], [1], { axes: 0 }),
-                weight,
+                builder.slice(tensor, [i, 0, 0, 0], [1, c, h, w]),
+                weightForZeroUpsampling,
                 {
                     strides: [4, 4],
-                    groups: 12
                 }
             )
         }),
         0
     )
+}
+
+export let createComputeGraphOfZeroUpsampling = (state: state): state => {
+    let {
+        builder,
+        all_features
+    } = state
 
     return {
         ...state,
-        all_features_upsampled: all_features_upsampled
+        all_features_upsampled: _zeroUpsampling(builder, all_features,
+            state.weightForZeroUpsampling,
+            state.frameCount, 12, state.width, state.height)
     }
 }
 
@@ -440,27 +474,22 @@ let _buildFeatureReconstructionModel = (builder,
         }, input_current_frame_feature_upsampled)
 
     let x_encoder_1 = _builderEncoder1(builder, x, encoder1Weight)
-    x = builder.maxPool2d(x_encoder_1, {
+    let x_encoder_1_pool = builder.maxPool2d(x_encoder_1, {
         windowDimensions: [2, 2],
         strides: [2, 2]
     })
-    let x_encoder_2 = _builderEncoder2(builder, x, encoder2Weight)
-    x = builder.maxPool2d(x_encoder_2, {
+    let x_encoder_2 = _builderEncoder2(builder, x_encoder_1_pool, encoder2Weight)
+    let x_encoder_2_pool = builder.maxPool2d(x_encoder_2, {
         windowDimensions: [2, 2],
         strides: [2, 2]
     })
-    x = _builderCenter(builder, x, centerWeight)
+    let x_center = _builderCenter(builder, x_encoder_2_pool, centerWeight)
 
-    x = builder.concat([x, x_encoder_2], 1)
-    x = _builderCat1(builder, x, cat1Weight)
-    x = _builderDecoder2(builder, x, decoder2Weight)
+    let x_cat_1 = _builderCat1(builder, builder.concat([x_center, x_encoder_2], 1), cat1Weight)
+    let x_decoder_2 = _builderDecoder2(builder, x_cat_1, decoder2Weight)
 
-
-    x = builder.concat([x, x_encoder_1], 1)
-    x = _builderCat2(builder, x, cat2Weight)
-    x = _builderDecoder1(builder, x, decoder1Weight)
-
-    return x
+    let x_cat_2 = _builderCat2(builder, builder.concat([x_decoder_2, x_encoder_1], 1), cat2Weight)
+    return _builderDecoder1(builder, x_cat_2, decoder1Weight)
 }
 
 export let createComputeGraphOfReconstruction = (state: state, weights) => {
