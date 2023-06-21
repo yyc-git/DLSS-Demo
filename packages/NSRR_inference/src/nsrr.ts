@@ -3,6 +3,7 @@ import { range } from './common/Array'
 import { buildConstantByNpy, sizeOfShape } from "./common/utils"
 import { MLOprand, height, Filter, Tensor, width, state, upsampledHeight, upsampledWidth, pool1Width, pool1Height, pool2Height, pool2Width } from './type'
 import { Mult } from "./metatype"
+import { buildTensorWithValue } from './TensorUtils'
 // import { getDimensions } from './TensorUtils'
 
 //create state
@@ -15,6 +16,8 @@ export let createState = (): state => {
         frameCount: 6,
         width: 180,
         height: 120,
+        upsampledWidth: 720,
+        upsampledHeight: 480,
         weightForZeroUpsampling: null,
         input_view: null,
         input_depth: null,
@@ -194,11 +197,15 @@ export let createComputeGraphOfZeroUpsampling = (state: state): state => {
     }
 }
 
-// TODO need bdd test
-let _remap = (builder, x: MLOprand, in_range: [number, number], out_range: [number, number]) => {
+export let _remap = <N extends number, C extends number, H extends number, W extends number>(builder, x: Tensor<N, C, H, W>, xDimensions: [N, C, H, W], in_range: [number, number], out_range: [number, number]) => {
     return builder.div(
-        builder.mul(builder.add(x, - in_range[0]), out_range[1] - out_range[0]),
-        (in_range[1] - in_range[0]) + out_range[0]
+        builder.mul(
+            builder.add(x,
+                buildTensorWithValue(builder, xDimensions, - in_range[0])
+            ),
+            buildTensorWithValue(builder, xDimensions, out_range[1] - out_range[0])
+        ),
+        buildTensorWithValue(builder, xDimensions, (in_range[1] - in_range[0]) + out_range[0])
     )
 }
 
@@ -225,7 +232,7 @@ let _multiplyWeightMap = (builder, weighting_map: Tensor<1, 5, upsampledHeight, 
     }, [])
 }
 
-let _buildFeatureReweightingModel = (builder,
+let _buildFeatureReweightingModel = (state: state, builder,
     input_current_frame_upsampled: Tensor<1, 4, upsampledHeight, upsampledWidth>,
     input_last_frame_features_upsampled: Tensor<5, 12, upsampledHeight, upsampledWidth>,
     [conv1Weight, conv2Weight, conv3Weight]: [
@@ -273,7 +280,7 @@ let _buildFeatureReweightingModel = (builder,
         }
     )
 
-    let weighting_map: Tensor<1, 5, upsampledHeight, upsampledWidth> = _remap(builder, conv3, [-1, 1], [0, 10])
+    let weighting_map: Tensor<1, 5, upsampledHeight, upsampledWidth> = _remap(builder, conv3, [1, 5, state.upsampledHeight, state.upsampledWidth], [-1, 1], [0, 10])
 
     return _multiplyWeightMap(builder, weighting_map, input_last_frame_features_upsampled)
 }
@@ -293,7 +300,7 @@ export let createComputeGraphOfFeatureReweighting = (state, weights) => {
         })
     let input_last_frame_features_upsampled = builder.slice(all_features_upsampled, [1], [5], { axes: 0 })
 
-    let arr_last_features_reweighted = _buildFeatureReweightingModel(builder,
+    let arr_last_features_reweighted = _buildFeatureReweightingModel(state, builder,
         input_current_frame_upsampled,
         input_last_frame_features_upsampled,
         weights

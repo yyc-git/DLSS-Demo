@@ -31,6 +31,8 @@ export type state = {
     frameCount: frameCount,
     width: number,
     height: number,
+    upsampledWidth: number,
+    upsampledHeight: number,
     weightForZeroUpsampling: Filter<number, number, 4, 4>,
     input_view: Tensor<frameCount, 3, height, width>,
     input_depth: Tensor<frameCount, 1, height, width>,
