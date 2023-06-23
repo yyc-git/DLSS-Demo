@@ -53,9 +53,17 @@ use dependent type!
 
 * TODO implement inference by webnn
 
-bdd test
+# bdd test
 
 run test
+    # get weight, bias .npy
+
+fix: feature extract get 6 weight, bias
+
+feat: add bias for conv2d
+    pass bdd test
+
+    pass run test
 
 
 * TODO video

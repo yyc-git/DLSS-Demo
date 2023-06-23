@@ -3,6 +3,7 @@ from abc import abstractmethod
 from numpy import inf
 from logger import TensorboardWriter
 
+import numpy as np
 
 class BaseTrainer:
     """
@@ -122,12 +123,27 @@ class BaseTrainer:
             'config': self.config
         }
         filename = str(self.checkpoint_dir / 'checkpoint-epoch{}.pth'.format(epoch))
-        torch.save(state, filename)
-        self.logger.info("Saving checkpoint: {} ...".format(filename))
-        if save_best:
-            best_path = str(self.checkpoint_dir / 'model_best.pth')
-            torch.save(state, best_path)
-            self.logger.info("Saving current best: model_best.pth ...")
+
+
+        # print(list(self.model.state_dict().keys()))
+        # torch.save(state, filename)
+
+        savePath = str("saved/checkpoints/")
+        print(savePath)
+
+        for key, value in self.model.state_dict().items(): 
+            np.save(str('{}{}.npy'.format(savePath, key) ), value)
+
+
+
+
+
+
+        # self.logger.info("Saving checkpoint: {} ...".format(filename))
+        # if save_best:
+        #     best_path = str(self.checkpoint_dir / 'model_best.pth')
+        #     torch.save(state, best_path)
+        #     self.logger.info("Saving current best: model_best.pth ...")
 
     def _resume_checkpoint(self, resume_path):
         """

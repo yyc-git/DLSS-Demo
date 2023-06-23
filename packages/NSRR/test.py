@@ -62,11 +62,11 @@ def main(config):
             img_flow = img_flow.to(device)
             img_view_truth = img_view_truth.to(device)
 
-            print(img_view.shape,
-            img_depth.shape, 
-            img_flow.shape, 
-img_view_truth.shape
-            )
+#             print(img_view.shape,
+#             img_depth.shape, 
+#             img_flow.shape, 
+# img_view_truth.shape
+#             )
 
             target = img_view_truth[:,:,0,:,:]
             vutils.save_image(target[0], './output_test/target.png'.format(i))

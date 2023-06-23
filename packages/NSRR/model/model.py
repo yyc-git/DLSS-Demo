@@ -210,8 +210,8 @@ class NSRRFeatureReweightingModel(BaseModel):
         # list_previous_features_warped = [7, 5, 480, 720] * 5
         reweight_feed_in = current_features_upsampled_for_reweighting
         for previous_features_warped in list_previous_features_warped:
-            print(previous_features_warped.shape)
-            print(previous_features_warped[:,:4].shape)
+            # print(previous_features_warped.shape)
+            # print(previous_features_warped[:,:4].shape)
             reweight_feed_in = torch.cat((reweight_feed_in, previous_features_warped[:,:4]), dim=1)
         
         weighting_map = self.weighting(reweight_feed_in)
