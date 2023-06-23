@@ -182,7 +182,7 @@ export let createComputeGraphOfFeatureExtract = (state: state, weights): state =
 
     let all_features = builder.concat(
         range(0, 6 - 1).map(i => {
-            return _buildFeatureExtractModel(builder, builder.slice(input_all_rgbd, [i, 0, 0, 0], [1, 4, height, width]), weights)
+            return _buildFeatureExtractModel(builder, builder.slice(input_all_rgbd, [i, 0, 0, 0], [1, 4, height, width]), weights[i])
         }),
         0
     )

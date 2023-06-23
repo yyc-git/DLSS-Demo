@@ -402,19 +402,92 @@ defineFeature(feature, test => {
         and('create compute graph of feature extract', () => {
             state = createComputeGraphOfFeatureExtract(state,
                 [
-                    _buildWeight(
-                        [32, 4, kernelSize, kernelSize],
-                        1.0
-                    ),
-                    _buildWeight(
-                        [32, 32, kernelSize, kernelSize],
-                        1.0
-                    ),
-                    _buildWeight(
-                        [8, 32, kernelSize, kernelSize],
-                        0.5
-                    ),
+                    [
+                        _buildWeight(
+                            [32, 4, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [32, 32, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [8, 32, kernelSize, kernelSize],
+                            0.5
+                        ),
+                    ],
+                    [
+                        _buildWeight(
+                            [32, 4, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [32, 32, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [8, 32, kernelSize, kernelSize],
+                            0.5
+                        ),
+                    ],
+                    [
+                        _buildWeight(
+                            [32, 4, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [32, 32, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [8, 32, kernelSize, kernelSize],
+                            0.5
+                        ),
+                    ],
+                    [
+                        _buildWeight(
+                            [32, 4, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [32, 32, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [8, 32, kernelSize, kernelSize],
+                            0.5
+                        ),
+                    ],
+                    [
+                        _buildWeight(
+                            [32, 4, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [32, 32, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [8, 32, kernelSize, kernelSize],
+                            0.5
+                        ),
+                    ],
+                    [
+                        _buildWeight(
+                            [32, 4, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [32, 32, kernelSize, kernelSize],
+                            1.0
+                        ),
+                        _buildWeight(
+                            [8, 32, kernelSize, kernelSize],
+                            0.5
+                        ),
+                    ],
                 ]
+
             )
         })
 
