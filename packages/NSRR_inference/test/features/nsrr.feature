@@ -22,3 +22,16 @@ Feature: NSRR
         And build
         And compute with no input
         Then get remaped data in range [0,10]
+
+    Scenario: create compute graph of whole
+        Given prepare fake input: view_tensor, depth_tensor
+        And create state
+        And prepare weightForZeroUpsampling
+        When create compute graph of input
+        And create compute graph of feature extract
+        And create compute graph of zero upsampling
+        And create compute graph of feature reweighting
+        And create compute graph of reconstruction
+        And build
+        And compute with input
+        Then get correct data

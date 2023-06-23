@@ -1,26 +1,28 @@
 import '@webmachinelearning/webnn-polyfill'
 import { range } from './common/Array'
 import { buildConstantByNpy, sizeOfShape } from "./common/utils"
-import { MLOprand, height, Filter, Tensor, width, state, upsampledHeight, upsampledWidth, pool1Width, pool1Height, pool2Height, pool2Width } from './type'
+import { height, Filter, Tensor, width, state, upsampledHeight, upsampledWidth, pool1Width, pool1Height, pool2Height, pool2Width, kernelSize } from './type'
 import { Mult } from "./metatype"
 import { buildTensorWithValue } from './TensorUtils'
 // import { getDimensions } from './TensorUtils'
 
 //create state
 
-export let createState = (): state => {
+export let createState = ([width, height]): state => {
     return {
         context: null,
         builder: null,
         graph: null,
         frameCount: 6,
-        width: 180,
-        height: 120,
-        upsampledWidth: 720,
-        upsampledHeight: 480,
-        weightForZeroUpsampling: null,
+        width: width,
+        height: height,
+        upsampledWidth: width * 4,
+        upsampledHeight: height * 4,
+        weightForZeroUpsamplingAllFeatures: null,
+        weightForZeroUpsamplingCurrentFrame: null,
         input_view: null,
         input_depth: null,
+        all_rgbd: null,
         all_features: null,
         all_features_upsampled: null,
         arr_last_features_reweighted: null,
@@ -28,7 +30,7 @@ export let createState = (): state => {
     }
 }
 
-export let _prepareWeightForZeroUpsampling = <C extends number>(state: state, c: C): state => {
+export let _prepareWeightForZeroUpsampling = <C extends number>(state: state, c: C): Filter<typeof c, typeof c, 4, 4> => {
     // refer to: https://github.com/pytorch/pytorch/issues/7911#issuecomment-392835113
 
     let builder = state.builder
@@ -61,10 +63,7 @@ export let _prepareWeightForZeroUpsampling = <C extends number>(state: state, c:
 
     let weight: Filter<typeof c, typeof c, 4, 4> = builder.concat(weightArr, 0)
 
-    return {
-        ...state,
-        weightForZeroUpsampling: weight
-    }
+    return weight
 }
 
 export let init = async (state, contextOptions) => {
@@ -86,17 +85,42 @@ export let init = async (state, contextOptions) => {
         builder,
     }
 
-    return _prepareWeightForZeroUpsampling(state, 12)
+    return {
+        ...state,
+        weightForZeroUpsamplingAllFeatures: _prepareWeightForZeroUpsampling(state, 12),
+        weightForZeroUpsamplingCurrentFrame: _prepareWeightForZeroUpsampling(state, 4),
+    }
+
 }
 
-export let createComputeGraphOfInput = (state, [width, height]) => {
-    let { builder } = state
+export let createComputeGraphOfInput = (state) => {
+    let { builder, width, height } = state
 
-    let input_viewShape = [6, 3, height, width]
-    let input_view = builder.input('input_view', { type: 'float32', dimensions: input_viewShape })
+    let input_viewShape = [1, 3, height, width]
+    let input_view = builder.concat(
+        [
+            builder.input('input_view1', { type: 'float32', dimensions: input_viewShape }),
+            builder.input('input_view2', { type: 'float32', dimensions: input_viewShape }),
+            builder.input('input_view3', { type: 'float32', dimensions: input_viewShape }),
+            builder.input('input_view4', { type: 'float32', dimensions: input_viewShape }),
+            builder.input('input_view5', { type: 'float32', dimensions: input_viewShape }),
+            builder.input('input_view6', { type: 'float32', dimensions: input_viewShape }),
+        ],
+        0
+    )
 
-    let input_depthShape = [6, 1, height, width]
-    let input_depth = builder.input('input_depth', { type: 'float32', dimensions: input_depthShape })
+    let input_depthShape = [1, 1, height, width]
+    let input_depth = builder.concat(
+        [
+            builder.input('input_depth1', { type: 'float32', dimensions: input_depthShape }),
+            builder.input('input_depth2', { type: 'float32', dimensions: input_depthShape }),
+            builder.input('input_depth3', { type: 'float32', dimensions: input_depthShape }),
+            builder.input('input_depth4', { type: 'float32', dimensions: input_depthShape }),
+            builder.input('input_depth5', { type: 'float32', dimensions: input_depthShape }),
+            builder.input('input_depth6', { type: 'float32', dimensions: input_depthShape }),
+        ],
+        0
+    )
 
     return {
         ...state,
@@ -110,9 +134,9 @@ let _getPadding = () => [1, 1, 1, 1]
 let _getStrides = () => [1, 1]
 
 let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width>, [conv1Weight, conv2Weight, conv3Weight]: [
-    Filter<32, 4, height, width>,
-    Filter<32, 32, height, width>,
-    Filter<32, 8, height, width>,
+    Filter<32, 4, kernelSize, kernelSize>,
+    Filter<32, 32, kernelSize, kernelSize>,
+    Filter<8, 32, kernelSize, kernelSize>,
 ]): Tensor<1, 12, height, width> => {
     let conv1 = builder.conv2d(
         input_rgbd,
@@ -145,9 +169,11 @@ let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width
     return builder.concat([conv3, input_rgbd], 1)
 }
 
-export let createComputeGraphOfFeatureExtract = (state, weights): Tensor<6, 12, height, width> => {
+export let createComputeGraphOfFeatureExtract = (state: state, weights): state => {
     let {
         builder,
+        width,
+        height,
         input_view,
         input_depth
     } = state
@@ -156,12 +182,14 @@ export let createComputeGraphOfFeatureExtract = (state, weights): Tensor<6, 12, 
 
     let all_features = builder.concat(
         range(0, 6 - 1).map(i => {
-            _buildFeatureExtractModel(builder, builder.slice(input_all_rgbd, [i], [1], { axes: [0] }), weights)
-        }), 0
+            return _buildFeatureExtractModel(builder, builder.slice(input_all_rgbd, [i, 0, 0, 0], [1, 4, height, width]), weights)
+        }),
+        0
     )
 
     return {
         ...state,
+        all_rgbd: input_all_rgbd,
         all_features
     }
 }
@@ -171,6 +199,7 @@ export let _zeroUpsampling = <N extends number, C extends number, H extends numb
 
     return builder.concat(
         range(0, n - 1).map(i => {
+            // console.log(n, tensor)
             return builder.convTranspose2d(
                 builder.slice(tensor, [i, 0, 0, 0], [1, c, h, w]),
                 weightForZeroUpsampling,
@@ -192,8 +221,8 @@ export let createComputeGraphOfZeroUpsampling = (state: state): state => {
     return {
         ...state,
         all_features_upsampled: _zeroUpsampling(builder, all_features,
-            state.weightForZeroUpsampling,
-            state.frameCount, 12, state.width, state.height)
+            state.weightForZeroUpsamplingAllFeatures,
+            state.frameCount, 12, state.height, state.width)
     }
 }
 
@@ -209,16 +238,16 @@ export let _remap = <N extends number, C extends number, H extends number, W ext
     )
 }
 
-let _multiplyWeightMap = (builder, weighting_map: Tensor<1, 5, upsampledHeight, upsampledWidth>, input_last_frame_features_upsampled: Tensor<5, 12, upsampledHeight, upsampledWidth>): Array<Tensor<1, 12, upsampledHeight, upsampledWidth>> => {
-    return range(0, 6 - 1).reduce((arr, i) => {
-        let input_last_frame_feature_upsampled: Tensor<1, 12, upsampledHeight, upsampledWidth> = builder.slice(input_last_frame_features_upsampled, [i], [1], { axes: [0] })
+let _multiplyWeightMap = (state: state, builder, weighting_map: Tensor<1, 5, upsampledHeight, upsampledWidth>, input_last_frame_features_upsampled: Tensor<5, 12, upsampledHeight, upsampledWidth>): Array<Tensor<1, 12, upsampledHeight, upsampledWidth>> => {
+    return range(0, 5 - 1).reduce((arr, i) => {
+        let input_last_frame_feature_upsampled: Tensor<1, 12, upsampledHeight, upsampledWidth> = builder.slice(input_last_frame_features_upsampled, [i, 0, 0, 0], [1, 12, state.upsampledHeight, state.upsampledWidth])
 
-        let weighting_one_last_frame_map: Tensor<1, 1, upsampledHeight, upsampledWidth> = builder.slice(weighting_map, [i], [1], { axes: [1] })
+        let weighting_one_last_frame_map: Tensor<1, 1, upsampledHeight, upsampledWidth> = builder.slice(weighting_map, [0, i, 0, 0], [1, 1, state.upsampledHeight, state.upsampledWidth])
 
         let tmp: Array<Tensor<1, 1, upsampledHeight, upsampledWidth>> = range(0, 12 - 1).reduce((tmp, j) => {
             tmp.push(
                 builder.mul(
-                    builder.slice(input_last_frame_feature_upsampled, [j], [1], { axes: [1] }),
+                    builder.slice(input_last_frame_feature_upsampled, [0, j, 0, 0], [1, 1, state.upsampledHeight, state.upsampledWidth]),
                     weighting_one_last_frame_map
                 )
             )
@@ -236,19 +265,20 @@ let _buildFeatureReweightingModel = (state: state, builder,
     input_current_frame_upsampled: Tensor<1, 4, upsampledHeight, upsampledWidth>,
     input_last_frame_features_upsampled: Tensor<5, 12, upsampledHeight, upsampledWidth>,
     [conv1Weight, conv2Weight, conv3Weight]: [
-        Filter<40, 24, upsampledHeight, upsampledWidth>,
-        Filter<40, 40, upsampledHeight, upsampledWidth>,
-        Filter<40, 5, upsampledHeight, upsampledWidth>,
+        Filter<40, 24, kernelSize, kernelSize>,
+        Filter<40, 40, kernelSize, kernelSize>,
+        Filter<5, 40, kernelSize, kernelSize>,
     ]
 ): Array<Tensor<1, 12, upsampledHeight, upsampledWidth>> => {
-    let reweight_feed_in: Tensor<1, 24, upsampledHeight, upsampledWidth> = range(0, 6 - 1).reduce((reweight_feed_in, i) => {
-        let input_last_frame_feature_upsampled = builder.slice(input_last_frame_features_upsampled, [i], [1], { axes: [0] })
+    let reweight_feed_in: Tensor<1, 24, upsampledHeight, upsampledWidth> = range(0, 5 - 1).reduce((reweight_feed_in, i) => {
+        let input_last_frame_feature_upsampled = builder.slice(input_last_frame_features_upsampled, [i, 0, 0, 0], [1, 12, state.upsampledHeight, state.upsampledWidth])
 
         return builder.concat(
             [
                 reweight_feed_in,
-                builder.slice(input_last_frame_feature_upsampled, [0], [4], { axes: [1] })
-            ], 0
+                builder.slice(input_last_frame_feature_upsampled, [0, 0, 0, 0], [1, 4, state.upsampledHeight, state.upsampledWidth])
+            ],
+            1
         )
     }, input_current_frame_upsampled)
 
@@ -282,23 +312,21 @@ let _buildFeatureReweightingModel = (state: state, builder,
 
     let weighting_map: Tensor<1, 5, upsampledHeight, upsampledWidth> = _remap(builder, conv3, [1, 5, state.upsampledHeight, state.upsampledWidth], [-1, 1], [0, 10])
 
-    return _multiplyWeightMap(builder, weighting_map, input_last_frame_features_upsampled)
+    return _multiplyWeightMap(state, builder, weighting_map, input_last_frame_features_upsampled)
 }
 
-export let createComputeGraphOfFeatureReweighting = (state, weights) => {
+export let createComputeGraphOfFeatureReweighting = (state: state, weights): state => {
     let {
         builder,
-        input_view,
+        all_rgbd,
         all_features_upsampled
     } = state
 
-    let input_current_frame_upsampled =
-        builder.resample2d(builder.slice(input_view, [0], [1], { axes: 0 }), {
-            mode: "nearest-neighbor",
-            scales: [4, 4],
-            axes: [2, 3]
-        })
-    let input_last_frame_features_upsampled = builder.slice(all_features_upsampled, [1], [5], { axes: 0 })
+    let input_current_frame_upsampled: Tensor<1, 4, upsampledHeight, upsampledWidth> = _zeroUpsampling(builder, all_rgbd,
+        state.weightForZeroUpsamplingCurrentFrame,
+        1, 4, state.height, state.width) as any
+
+    let input_last_frame_features_upsampled = builder.slice(all_features_upsampled, [1, 0, 0, 0], [5, 12, state.upsampledHeight, state.upsampledWidth])
 
     let arr_last_features_reweighted = _buildFeatureReweightingModel(state, builder,
         input_current_frame_upsampled,
@@ -312,8 +340,8 @@ export let createComputeGraphOfFeatureReweighting = (state, weights) => {
     }
 }
 
-let _builderEncoder1 = (builder, input: Tensor<1, 72, upsampledHeight, upsampledWidth>, [conv1Weight, conv2Weight]: [Filter<64, 72, upsampledHeight, upsampledWidth>,
-    Filter<32, 64, upsampledHeight, upsampledWidth>
+let _builderEncoder1 = (builder, input: Tensor<1, 72, upsampledHeight, upsampledWidth>, [conv1Weight, conv2Weight]: [Filter<64, 72, kernelSize, kernelSize>,
+    Filter<32, 64, kernelSize, kernelSize>
 ]): Tensor<1, 32, upsampledHeight, upsampledWidth> => {
     let conv1 = builder.conv2d(
         input,
@@ -336,8 +364,8 @@ let _builderEncoder1 = (builder, input: Tensor<1, 72, upsampledHeight, upsampled
     )
 }
 
-let _builderEncoder2 = (builder, input: Tensor<1, 32, pool1Height, pool1Width>, [conv1Weight, conv2Weight]: [Filter<64, 32, pool1Height, pool1Width>,
-    Filter<64, 64, pool1Height, pool1Width>
+let _builderEncoder2 = (builder, input: Tensor<1, 32, pool1Height, pool1Width>, [conv1Weight, conv2Weight]: [Filter<64, 32, kernelSize, kernelSize>,
+    Filter<64, 64, kernelSize, kernelSize>
 ]): Tensor<1, 64, pool1Height, pool1Width> => {
     let conv1 = builder.conv2d(
         input,
@@ -360,8 +388,8 @@ let _builderEncoder2 = (builder, input: Tensor<1, 32, pool1Height, pool1Width>, 
     )
 }
 
-let _builderCenter = (builder, input: Tensor<1, 64, pool2Height, pool2Width>, [conv1Weight, conv2Weight]: [Filter<128, 64, pool2Height, pool2Width>,
-    Filter<128, 128, pool2Height, pool2Width>
+let _builderCenter = (builder, input: Tensor<1, 64, pool2Height, pool2Width>, [conv1Weight, conv2Weight]: [Filter<128, 64, kernelSize, kernelSize>,
+    Filter<128, 128, kernelSize, kernelSize>
 ]): Tensor<1, 128, pool1Height, pool1Width> => {
     let conv1 = builder.conv2d(
         input,
@@ -391,7 +419,7 @@ let _builderCenter = (builder, input: Tensor<1, 64, pool2Height, pool2Width>, [c
     })
 }
 
-let _builderCat1 = (builder, input: Tensor<1, 192, pool1Height, pool1Width>, convWeight: Filter<128, 192, pool1Height, pool1Width>): Tensor<1, 128, pool1Height, pool1Width> => {
+let _builderCat1 = (builder, input: Tensor<1, 192, pool1Height, pool1Width>, convWeight: Filter<128, 192, kernelSize, kernelSize>): Tensor<1, 128, pool1Height, pool1Width> => {
     return builder.conv2d(
         input,
         convWeight,
@@ -403,8 +431,8 @@ let _builderCat1 = (builder, input: Tensor<1, 192, pool1Height, pool1Width>, con
     )
 }
 
-let _builderDecoder2 = (builder, input: Tensor<1, 128, pool1Height, pool1Width>, [conv1Weight, conv2Weight]: [Filter<64, 128, pool1Height, pool1Width>,
-    Filter<64, 64, pool1Height, pool1Width>
+let _builderDecoder2 = (builder, input: Tensor<1, 128, pool1Height, pool1Width>, [conv1Weight, conv2Weight]: [Filter<64, 128, kernelSize, kernelSize>,
+    Filter<64, 64, kernelSize, kernelSize>
 ]): Tensor<1, 64, upsampledHeight, upsampledWidth> => {
     let conv1 = builder.conv2d(
         input,
@@ -433,7 +461,7 @@ let _builderDecoder2 = (builder, input: Tensor<1, 128, pool1Height, pool1Width>,
     })
 }
 
-let _builderCat2 = (builder, input: Tensor<1, 96, upsampledHeight, upsampledWidth>, convWeight: Filter<32, 96, upsampledHeight, upsampledWidth>): Tensor<1, 32, upsampledHeight, upsampledWidth> => {
+let _builderCat2 = (builder, input: Tensor<1, 96, upsampledHeight, upsampledWidth>, convWeight: Filter<32, 96, kernelSize, kernelSize>): Tensor<1, 32, upsampledHeight, upsampledWidth> => {
     return builder.conv2d(
         input,
         convWeight,
@@ -445,7 +473,7 @@ let _builderCat2 = (builder, input: Tensor<1, 96, upsampledHeight, upsampledWidt
     )
 }
 
-let _builderDecoder1 = (builder, input: Tensor<1, 32, upsampledHeight, upsampledWidth>, convWeight: Filter<3, 32, upsampledHeight, upsampledWidth>): Tensor<1, 3, upsampledHeight, upsampledWidth> => {
+let _builderDecoder1 = (builder, input: Tensor<1, 32, upsampledHeight, upsampledWidth>, convWeight: Filter<3, 32, kernelSize, kernelSize>): Tensor<1, 3, upsampledHeight, upsampledWidth> => {
     return builder.conv2d(
         input,
         convWeight,
@@ -509,7 +537,7 @@ export let createComputeGraphOfReconstruction = (state: state, weights) => {
     return {
         ...state,
         output: _buildFeatureReconstructionModel(builder,
-            builder.slice(all_features_upsampled, [0], [1], { axes: 0 }),
+            builder.slice(all_features_upsampled, [0, 0, 0, 0], [1, 12, state.upsampledHeight, state.upsampledWidth]),
             arr_last_features_reweighted,
             weights
         )
@@ -525,10 +553,23 @@ export let build = async (state, outputOperand) => {
     }
 }
 
-export let compute = async (state, view_tensor, depth_tensor, output) => {
+export let compute = async (state,
+    [view_tensor1, view_tensor2, view_tensor3, view_tensor4, view_tensor5, view_tensor6,],
+    [depth_tensor1, depth_tensor2, depth_tensor3, depth_tensor4, depth_tensor5, depth_tensor6,],
+    output) => {
     let inputs = {
-        'input_view': view_tensor,
-        'input_depth': depth_tensor,
+        'input_view1': view_tensor1,
+        'input_view2': view_tensor2,
+        'input_view3': view_tensor3,
+        'input_view4': view_tensor4,
+        'input_view5': view_tensor5,
+        'input_view6': view_tensor6,
+        'input_depth1': depth_tensor1,
+        'input_depth2': depth_tensor2,
+        'input_depth3': depth_tensor3,
+        'input_depth4': depth_tensor4,
+        'input_depth5': depth_tensor5,
+        'input_depth6': depth_tensor6,
     }
     let outputs = { 'output': output }
     let results = await state.context.compute(state.graph, inputs, outputs);

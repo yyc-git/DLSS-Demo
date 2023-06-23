@@ -24,6 +24,8 @@ export type pool2Height = height
 
 export type frameCount = 6
 
+export type kernelSize = 3
+
 export type state = {
     context: any,
     builder: any,
@@ -33,9 +35,11 @@ export type state = {
     height: number,
     upsampledWidth: number,
     upsampledHeight: number,
-    weightForZeroUpsampling: Filter<number, number, 4, 4>,
+    weightForZeroUpsamplingAllFeatures: Filter<12, 12, 4, 4>,
+    weightForZeroUpsamplingCurrentFrame: Filter<4, 4, 4, 4>,
     input_view: Tensor<frameCount, 3, height, width>,
     input_depth: Tensor<frameCount, 1, height, width>,
+    all_rgbd: Tensor<frameCount, 4, height, width>,
     all_features: Tensor<frameCount, 12, height, width>,
     all_features_upsampled: Tensor<frameCount, 12, upsampledHeight, upsampledWidth>,
     arr_last_features_reweighted: Array<Tensor<1, 12, upsampledHeight, upsampledWidth>>,
