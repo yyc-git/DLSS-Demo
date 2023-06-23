@@ -137,6 +137,10 @@ let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width
     Filter<32, 4, kernelSize, kernelSize>,
     Filter<32, 32, kernelSize, kernelSize>,
     Filter<8, 32, kernelSize, kernelSize>,
+], [conv1Bias, conv2Bias, conv3Bias]: [
+    Tensor<1, 1, 1, 32>,
+    Tensor<1, 1, 1, 32>,
+    Tensor<1, 1, 1, 8>,
 ]): Tensor<1, 12, height, width> => {
     let conv1 = builder.conv2d(
         input_rgbd,
@@ -144,7 +148,8 @@ let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv1Bias
         }
     )
     let conv2 = builder.conv2d(
@@ -153,7 +158,8 @@ let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv2Bias
         }
     )
     let conv3 = builder.conv2d(
@@ -162,14 +168,15 @@ let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv3Bias
         }
     )
 
     return builder.concat([conv3, input_rgbd], 1)
 }
 
-export let createComputeGraphOfFeatureExtract = (state: state, weights): state => {
+export let createComputeGraphOfFeatureExtract = (state: state, weights, biases): state => {
     let {
         builder,
         width,
@@ -182,7 +189,7 @@ export let createComputeGraphOfFeatureExtract = (state: state, weights): state =
 
     let all_features = builder.concat(
         range(0, 6 - 1).map(i => {
-            return _buildFeatureExtractModel(builder, builder.slice(input_all_rgbd, [i, 0, 0, 0], [1, 4, height, width]), weights[i])
+            return _buildFeatureExtractModel(builder, builder.slice(input_all_rgbd, [i, 0, 0, 0], [1, 4, height, width]), weights[i], biases[i])
         }),
         0
     )
@@ -268,6 +275,11 @@ let _buildFeatureReweightingModel = (state: state, builder,
         Filter<40, 24, kernelSize, kernelSize>,
         Filter<40, 40, kernelSize, kernelSize>,
         Filter<5, 40, kernelSize, kernelSize>,
+    ],
+    [conv1Bias, conv2Bias, conv3Bias]: [
+        Tensor<1, 1, 1, 40>,
+        Tensor<1, 1, 1, 40>,
+        Tensor<1, 1, 1, 5>,
     ]
 ): Array<Tensor<1, 12, upsampledHeight, upsampledWidth>> => {
     let reweight_feed_in: Tensor<1, 24, upsampledHeight, upsampledWidth> = range(0, 5 - 1).reduce((reweight_feed_in, i) => {
@@ -288,7 +300,8 @@ let _buildFeatureReweightingModel = (state: state, builder,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv1Bias
         }
     )
     let conv2 = builder.conv2d(
@@ -297,7 +310,8 @@ let _buildFeatureReweightingModel = (state: state, builder,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv2Bias
         }
     )
     let conv3 = builder.conv2d(
@@ -306,7 +320,8 @@ let _buildFeatureReweightingModel = (state: state, builder,
         {
             activation: builder.tanh(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv3Bias
         }
     )
 
@@ -315,7 +330,7 @@ let _buildFeatureReweightingModel = (state: state, builder,
     return _multiplyWeightMap(state, builder, weighting_map, input_last_frame_features_upsampled)
 }
 
-export let createComputeGraphOfFeatureReweighting = (state: state, weights): state => {
+export let createComputeGraphOfFeatureReweighting = (state: state, weights, biases): state => {
     let {
         builder,
         all_rgbd,
@@ -331,7 +346,8 @@ export let createComputeGraphOfFeatureReweighting = (state: state, weights): sta
     let arr_last_features_reweighted = _buildFeatureReweightingModel(state, builder,
         input_current_frame_upsampled,
         input_last_frame_features_upsampled,
-        weights
+        weights,
+        biases
     )
 
     return {
@@ -340,16 +356,23 @@ export let createComputeGraphOfFeatureReweighting = (state: state, weights): sta
     }
 }
 
-let _builderEncoder1 = (builder, input: Tensor<1, 72, upsampledHeight, upsampledWidth>, [conv1Weight, conv2Weight]: [Filter<64, 72, kernelSize, kernelSize>,
-    Filter<32, 64, kernelSize, kernelSize>
-]): Tensor<1, 32, upsampledHeight, upsampledWidth> => {
+let _builderEncoder1 = (builder, input: Tensor<1, 72, upsampledHeight, upsampledWidth>,
+    [conv1Weight, conv2Weight]: [Filter<64, 72, kernelSize, kernelSize>,
+        Filter<32, 64, kernelSize, kernelSize>
+    ],
+    [conv1Bias, conv2Bias]: [
+        Tensor<1, 1, 1, 64>,
+        Tensor<1, 1, 1, 32>,
+    ]
+): Tensor<1, 32, upsampledHeight, upsampledWidth> => {
     let conv1 = builder.conv2d(
         input,
         conv1Weight,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv1Bias
         }
     )
 
@@ -359,21 +382,28 @@ let _builderEncoder1 = (builder, input: Tensor<1, 72, upsampledHeight, upsampled
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv2Bias
         }
     )
 }
 
 let _builderEncoder2 = (builder, input: Tensor<1, 32, pool1Height, pool1Width>, [conv1Weight, conv2Weight]: [Filter<64, 32, kernelSize, kernelSize>,
     Filter<64, 64, kernelSize, kernelSize>
-]): Tensor<1, 64, pool1Height, pool1Width> => {
+],
+    [conv1Bias, conv2Bias]: [
+        Tensor<1, 1, 1, 64>,
+        Tensor<1, 1, 1, 64>,
+    ]
+): Tensor<1, 64, pool1Height, pool1Width> => {
     let conv1 = builder.conv2d(
         input,
         conv1Weight,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv1Bias
         }
     )
 
@@ -383,21 +413,28 @@ let _builderEncoder2 = (builder, input: Tensor<1, 32, pool1Height, pool1Width>, 
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv2Bias
         }
     )
 }
 
 let _builderCenter = (builder, input: Tensor<1, 64, pool2Height, pool2Width>, [conv1Weight, conv2Weight]: [Filter<128, 64, kernelSize, kernelSize>,
     Filter<128, 128, kernelSize, kernelSize>
-]): Tensor<1, 128, pool1Height, pool1Width> => {
+],
+    [conv1Bias, conv2Bias]: [
+        Tensor<1, 1, 1, 128>,
+        Tensor<1, 1, 1, 128>,
+    ]
+): Tensor<1, 128, pool1Height, pool1Width> => {
     let conv1 = builder.conv2d(
         input,
         conv1Weight,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv1Bias
         }
     )
 
@@ -407,7 +444,8 @@ let _builderCenter = (builder, input: Tensor<1, 64, pool2Height, pool2Width>, [c
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv2Bias
         }
     )
 
@@ -419,28 +457,37 @@ let _builderCenter = (builder, input: Tensor<1, 64, pool2Height, pool2Width>, [c
     })
 }
 
-let _builderCat1 = (builder, input: Tensor<1, 192, pool1Height, pool1Width>, convWeight: Filter<128, 192, kernelSize, kernelSize>): Tensor<1, 128, pool1Height, pool1Width> => {
+let _builderCat1 = (builder, input: Tensor<1, 192, pool1Height, pool1Width>, convWeight: Filter<128, 192, kernelSize, kernelSize>,
+    convBias: Tensor<1, 1, 1, 128>
+): Tensor<1, 128, pool1Height, pool1Width> => {
     return builder.conv2d(
         input,
         convWeight,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: convBias
         }
     )
 }
 
 let _builderDecoder2 = (builder, input: Tensor<1, 128, pool1Height, pool1Width>, [conv1Weight, conv2Weight]: [Filter<64, 128, kernelSize, kernelSize>,
     Filter<64, 64, kernelSize, kernelSize>
-]): Tensor<1, 64, upsampledHeight, upsampledWidth> => {
+],
+    [conv1Bias, conv2Bias]: [
+        Tensor<1, 1, 1, 64>,
+        Tensor<1, 1, 1, 64>,
+    ]
+): Tensor<1, 64, upsampledHeight, upsampledWidth> => {
     let conv1 = builder.conv2d(
         input,
         conv1Weight,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv1Bias
         }
     )
 
@@ -450,7 +497,8 @@ let _builderDecoder2 = (builder, input: Tensor<1, 128, pool1Height, pool1Width>,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: conv2Bias
         }
     )
 
@@ -461,26 +509,32 @@ let _builderDecoder2 = (builder, input: Tensor<1, 128, pool1Height, pool1Width>,
     })
 }
 
-let _builderCat2 = (builder, input: Tensor<1, 96, upsampledHeight, upsampledWidth>, convWeight: Filter<32, 96, kernelSize, kernelSize>): Tensor<1, 32, upsampledHeight, upsampledWidth> => {
+let _builderCat2 = (builder, input: Tensor<1, 96, upsampledHeight, upsampledWidth>, convWeight: Filter<32, 96, kernelSize, kernelSize>,
+    convBias: Tensor<1, 1, 1, 32>
+): Tensor<1, 32, upsampledHeight, upsampledWidth> => {
     return builder.conv2d(
         input,
         convWeight,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: convBias
         }
     )
 }
 
-let _builderDecoder1 = (builder, input: Tensor<1, 32, upsampledHeight, upsampledWidth>, convWeight: Filter<3, 32, kernelSize, kernelSize>): Tensor<1, 3, upsampledHeight, upsampledWidth> => {
+let _builderDecoder1 = (builder, input: Tensor<1, 32, upsampledHeight, upsampledWidth>, convWeight: Filter<3, 32, kernelSize, kernelSize>,
+    convBias: Tensor<1, 1, 1, 3>
+): Tensor<1, 3, upsampledHeight, upsampledWidth> => {
     return builder.conv2d(
         input,
         convWeight,
         {
             activation: builder.relu(),
             padding: _getPadding(),
-            strides: _getStrides()
+            strides: _getStrides(),
+            bias: convBias
         }
     )
 }
@@ -496,6 +550,15 @@ let _buildFeatureReconstructionModel = (builder,
         decoder2Weight,
         cat2Weight,
         decoder1Weight
+    ],
+    [
+        encoder1Bias,
+        encoder2Bias,
+        centerBias,
+        cat1Bias,
+        decoder2Bias,
+        cat2Bias,
+        decoder1Bias
     ]
 ): Tensor<1, 3, upsampledHeight, upsampledWidth> => {
     let x: Tensor<1, 72, upsampledHeight, upsampledWidth> =
@@ -508,26 +571,26 @@ let _buildFeatureReconstructionModel = (builder,
             )
         }, input_current_frame_feature_upsampled)
 
-    let x_encoder_1 = _builderEncoder1(builder, x, encoder1Weight)
+    let x_encoder_1 = _builderEncoder1(builder, x, encoder1Weight, encoder1Bias)
     let x_encoder_1_pool = builder.maxPool2d(x_encoder_1, {
         windowDimensions: [2, 2],
         strides: [2, 2]
     })
-    let x_encoder_2 = _builderEncoder2(builder, x_encoder_1_pool, encoder2Weight)
+    let x_encoder_2 = _builderEncoder2(builder, x_encoder_1_pool, encoder2Weight, encoder2Bias)
     let x_encoder_2_pool = builder.maxPool2d(x_encoder_2, {
         windowDimensions: [2, 2],
         strides: [2, 2]
     })
-    let x_center = _builderCenter(builder, x_encoder_2_pool, centerWeight)
+    let x_center = _builderCenter(builder, x_encoder_2_pool, centerWeight, centerBias)
 
-    let x_cat_1 = _builderCat1(builder, builder.concat([x_center, x_encoder_2], 1), cat1Weight)
-    let x_decoder_2 = _builderDecoder2(builder, x_cat_1, decoder2Weight)
+    let x_cat_1 = _builderCat1(builder, builder.concat([x_center, x_encoder_2], 1), cat1Weight, cat1Bias)
+    let x_decoder_2 = _builderDecoder2(builder, x_cat_1, decoder2Weight, decoder2Bias)
 
-    let x_cat_2 = _builderCat2(builder, builder.concat([x_decoder_2, x_encoder_1], 1), cat2Weight)
-    return _builderDecoder1(builder, x_cat_2, decoder1Weight)
+    let x_cat_2 = _builderCat2(builder, builder.concat([x_decoder_2, x_encoder_1], 1), cat2Weight, cat2Bias)
+    return _builderDecoder1(builder, x_cat_2, decoder1Weight, decoder1Bias)
 }
 
-export let createComputeGraphOfReconstruction = (state: state, weights) => {
+export let createComputeGraphOfReconstruction = (state: state, weights, biases) => {
     let {
         builder,
         all_features_upsampled,
@@ -539,7 +602,8 @@ export let createComputeGraphOfReconstruction = (state: state, weights) => {
         output: _buildFeatureReconstructionModel(builder,
             builder.slice(all_features_upsampled, [0, 0, 0, 0], [1, 12, state.upsampledHeight, state.upsampledWidth]),
             arr_last_features_reweighted,
-            weights
+            weights,
+            biases
         )
     }
 }

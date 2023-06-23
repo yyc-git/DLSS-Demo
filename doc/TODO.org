@@ -58,10 +58,10 @@ use dependent type!
 run test
     # get weight, bias .npy
 
-fix: feature extract get 6 weight, bias
+# fix: feature extract get 6 weight, bias
 
-feat: add bias for conv2d
-    pass bdd test
+# feat: add bias for conv2d
+    # pass bdd test
 
     pass run test
 
