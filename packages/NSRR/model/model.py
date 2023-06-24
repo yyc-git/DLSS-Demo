@@ -39,12 +39,16 @@ class NSRRModel(BaseModel):
         # return: [B, C=12, D=6, W, H]
         return torch.cat((rgbd, rgbd_out), dim=1)
     def zero_upsampling_function(self, x):
+
         B, C, D, H, W = x.shape
         x_out = [None for i in range(D)]
         for i in range(D):
-            # we don't use zero upsample, instead, we use interpolate upsample because Pytorch has API
-            x_out[i] = nn.functional.upsample(x[:, :, i, :, :], scale_factor=self.scale_factor).unsqueeze(2)
+            ## we don't use zero upsample, instead, we use interpolate upsample because Pytorch has API
+            # x_out[i] = nn.functional.upsample(x[:, :, i, :, :], scale_factor=self.scale_factor).unsqueeze(2)
+
+            x_out[i] = ZeroUpsample2D(self.scale_factor).forward(x[:, :, i, :, :]).unsqueeze(2)
         x_out = torch.cat(x_out, dim=2)
+        # print(x_out)
         return x_out
     def motion_upsampling_function(self, x):
         B, C, D, H, W = x.shape

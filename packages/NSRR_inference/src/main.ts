@@ -117,14 +117,6 @@ window.onload = async () => {
     // let depth_tensor = state.builder.concat(depth_tensors, 0)
 
 
-    // console.log(depth_tensors[0])
-
-    // _drawOutput(depth_tensors[0], [width, height])
-    // _drawOutput(view_tensors[0], [width, height])
-    // _drawOutput(depth_tensors[0], [upsampledWidth,upsampledHeight])
-
-    // return
-
     state = createComputeGraphOfInput(state)
     state = createComputeGraphOfFeatureExtract(state,
         [
@@ -266,7 +258,7 @@ window.onload = async () => {
     let outputBuffer = new Float32Array(sizeOfShape([1, 3, upsampledWidth, upsampledHeight]));
 
     let results
-    ////warm up
+    //TODO warm up
     // results = await compute(state, view_tensors, depth_tensors, outputBuffer)
 
     let start = performance.now();

@@ -51,7 +51,7 @@ TODO define MLGraphBuilder
 use dependent type!
 
 
-* TODO implement inference by webnn
+* DONE implement inference by webnn
 
 # bdd test
 
@@ -75,7 +75,7 @@ run test
         align_corners=False ?
 
 
-    model use zero upsample?
+    # model use zero upsample?
 
     input_current_frame_upsampled error?
 
