@@ -18,7 +18,7 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
 def main(config):
-    logger = config.get_logger('train')
+    # logger = config.get_logger('train')
 
     # setup data_loader instances
     data_loader = config.init_obj('data_loader', module_data)
@@ -26,7 +26,7 @@ def main(config):
 
     # build model architecture, then print to console
     model = config.init_obj('arch', module_arch)
-    logger.info(model)
+    # logger.info(model)
 
     #prepare for (multi-device) GPU training
     device, device_ids = prepare_device(config['n_gpu'])

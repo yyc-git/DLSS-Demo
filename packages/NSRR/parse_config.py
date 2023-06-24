@@ -31,21 +31,21 @@ class ConfigParser:
         self._save_dir = save_dir / 'models' / exper_name / run_id
         self._log_dir = save_dir / 'log' / exper_name / run_id
 
-        # make directory for saving checkpoints and log.
-        exist_ok = run_id == ''
-        self.save_dir.mkdir(parents=True, exist_ok=exist_ok)
-        self.log_dir.mkdir(parents=True, exist_ok=exist_ok)
+        ## make directory for saving checkpoints and log.
+        # exist_ok = run_id == ''
+        # self.save_dir.mkdir(parents=True, exist_ok=exist_ok)
+        # self.log_dir.mkdir(parents=True, exist_ok=exist_ok)
 
-        # save updated config file to the checkpoint dir
-        write_json(self.config, self.save_dir / 'config.json')
+        # # save updated config file to the checkpoint dir
+        # write_json(self.config, self.save_dir / 'config.json')
 
-        # configure logging module
-        setup_logging(self.log_dir)
-        self.log_levels = {
-            0: logging.WARNING,
-            1: logging.INFO,
-            2: logging.DEBUG
-        }
+        # # configure logging module
+        # setup_logging(self.log_dir)
+        # self.log_levels = {
+        #     0: logging.WARNING,
+        #     1: logging.INFO,
+        #     2: logging.DEBUG
+        # }
 
     @classmethod
     def from_args(cls, args, options=''):
@@ -61,7 +61,8 @@ class ConfigParser:
             os.environ["CUDA_VISIBLE_DEVICES"] = args.device
         if args.resume is not None:
             resume = Path(args.resume)
-            cfg_fname = resume.parent / 'config.json'
+            # cfg_fname = resume.parent / 'config.json'
+            cfg_fname = Path(args.config)
         else:
             msg_no_cfg = "Configuration file need to be specified. Add '-c config.json', for example."
             assert args.config is not None, msg_no_cfg

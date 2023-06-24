@@ -32,27 +32,33 @@ let _getInputTensor = async (img_path, inputDimensions,) => {
     })
 }
 
-export let loadInputs = async ([width, height]) => {
+export let loadInputs = async ([width, height]): Promise<[
+    [Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array,],
+    [Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array,],
+]> => {
     return [
-        [
-            view_current_frame_img_path,
-            view_last_frame_1_img_path,
-            view_last_frame_2_img_path,
-            view_last_frame_3_img_path,
-            view_last_frame_4_img_path,
-            view_last_frame_5_img_path,
-        ].map(async img_path => {
-            return await _getInputTensor(img_path, [1, 3, height, width])
-        }),
-        [
-            depth_current_frame_img_path,
-            depth_last_frame_1_img_path,
-            depth_last_frame_2_img_path,
-            depth_last_frame_3_img_path,
-            depth_last_frame_4_img_path,
-            depth_last_frame_5_img_path,
-        ].map(async img_path => {
-            return await _getInputTensor(img_path, [1, 1, height, width])
-        })
+        await Promise.all(
+            [
+                view_current_frame_img_path,
+                view_last_frame_1_img_path,
+                view_last_frame_2_img_path,
+                view_last_frame_3_img_path,
+                view_last_frame_4_img_path,
+                view_last_frame_5_img_path,
+            ].map(async img_path => {
+                return await _getInputTensor(img_path, [1, 3, height, width])
+            })) as any,
+        await Promise.all(
+            [
+                depth_current_frame_img_path,
+                depth_last_frame_1_img_path,
+                depth_last_frame_2_img_path,
+                depth_last_frame_3_img_path,
+                depth_last_frame_4_img_path,
+                depth_last_frame_5_img_path,
+            ].map(async img_path => {
+                return await _getInputTensor(img_path, [1, 1, height, width])
+            })
+        ) as any
     ]
 }

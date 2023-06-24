@@ -274,7 +274,9 @@ class NSRRReconstructionModel(BaseModel):
             nn.ReLU(),
             nn.Conv2d(128, 128, kernel_size=kernel_size, padding=padding),
             nn.ReLU(),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            # nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
+            # nn.Upsample(scale_factor=2, mode='linear', align_corners=False)
         )
         cat_1 = nn.Sequential(
             nn.Conv2d(192, 128, kernel_size=kernel_size, padding=padding),
@@ -289,7 +291,9 @@ class NSRRReconstructionModel(BaseModel):
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=kernel_size, padding=padding),
             nn.ReLU(),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            # nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
+            # nn.Upsample(scale_factor=2, mode='linear', align_corners=False)
         )
         # decoder1 = nn.Sequential(
         #     nn.Conv2d(64, 32, kernel_size=kernel_size, padding=padding),

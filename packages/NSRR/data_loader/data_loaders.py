@@ -119,6 +119,7 @@ class NSRRDataset(Dataset):
         # print("img_depth.shape = ", img_depth.shape)
         # print("img_flow.shape = ", img_flow.shape)
         # print("img_view_truth.shape = ", img_view_truth.shape)
+        # print(img_depth)
         return img_view, img_depth, img_flow, img_view_truth
 
     def __len__(self) -> int:

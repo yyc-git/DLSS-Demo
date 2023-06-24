@@ -11,7 +11,7 @@ class BaseTrainer:
     """
     def __init__(self, model, criterion, metric_ftns, optimizer, config):
         self.config = config
-        self.logger = config.get_logger('trainer', config['trainer']['verbosity'])
+        # self.logger = config.get_logger('trainer', config['trainer']['verbosity'])
 
         self.model = model
         self.criterion = criterion
@@ -40,8 +40,8 @@ class BaseTrainer:
 
         self.checkpoint_dir = config.save_dir
 
-        # setup visualization writer instance                
-        self.writer = TensorboardWriter(config.log_dir, self.logger, cfg_trainer['tensorboard'])
+        # # setup visualization writer instance                
+        # self.writer = TensorboardWriter(config.log_dir, self.logger, cfg_trainer['tensorboard'])
 
         if config.resume is not None:
             self._resume_checkpoint(config.resume)
@@ -126,10 +126,10 @@ class BaseTrainer:
 
 
         # print(list(self.model.state_dict().keys()))
-        # torch.save(state, filename)
+        filename = str("saved/checkpoints/checkpoint-epoch1.pth")
+        torch.save(state, filename)
 
         savePath = str("saved/checkpoints/")
-        print(savePath)
 
         for key, value in self.model.state_dict().items(): 
             np.save(str('{}{}.npy'.format(savePath, key) ), value)

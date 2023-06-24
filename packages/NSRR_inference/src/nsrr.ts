@@ -141,7 +141,7 @@ let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width
     Tensor<1, 1, 1, 32>,
     Tensor<1, 1, 1, 32>,
     Tensor<1, 1, 1, 8>,
-]): Tensor<1, 12, height, width> => {
+]): Tensor<1, 8, height, width> => {
     let conv1 = builder.conv2d(
         input_rgbd,
         conv1Weight,
@@ -173,7 +173,7 @@ let _buildFeatureExtractModel = (builder, input_rgbd: Tensor<1, 4, height, width
         }
     )
 
-    return builder.concat([conv3, input_rgbd], 1)
+    return conv3
 }
 
 export let createComputeGraphOfFeatureExtract = (state: state, weights, biases): state => {
@@ -187,12 +187,14 @@ export let createComputeGraphOfFeatureExtract = (state: state, weights, biases):
 
     let input_all_rgbd: Tensor<6, 4, height, width> = builder.concat([input_view, input_depth], 1)
 
-    let all_features = builder.concat(
+    let all_featuresWithoutInput = builder.concat(
         range(0, 6 - 1).map(i => {
             return _buildFeatureExtractModel(builder, builder.slice(input_all_rgbd, [i, 0, 0, 0], [1, 4, height, width]), weights[i], biases[i])
         }),
         0
     )
+
+    let all_features = builder.concat([input_all_rgbd, all_featuresWithoutInput], 1)
 
     return {
         ...state,
@@ -283,12 +285,20 @@ let _buildFeatureReweightingModel = (state: state, builder,
     ]
 ): Array<Tensor<1, 12, upsampledHeight, upsampledWidth>> => {
     let reweight_feed_in: Tensor<1, 24, upsampledHeight, upsampledWidth> = range(0, 5 - 1).reduce((reweight_feed_in, i) => {
-        let input_last_frame_feature_upsampled = builder.slice(input_last_frame_features_upsampled, [i, 0, 0, 0], [1, 12, state.upsampledHeight, state.upsampledWidth])
+        // let input_last_frame_feature_upsampled = builder.slice(input_last_frame_features_upsampled, [i, 0, 0, 0], [1, 12, state.upsampledHeight, state.upsampledWidth])
+
+        // return builder.concat(
+        //     [
+        //         reweight_feed_in,
+        //         builder.slice(input_last_frame_feature_upsampled, [0, 0, 0, 0], [1, 4, state.upsampledHeight, state.upsampledWidth])
+        //     ],
+        //     1
+        // )
 
         return builder.concat(
             [
                 reweight_feed_in,
-                builder.slice(input_last_frame_feature_upsampled, [0, 0, 0, 0], [1, 4, state.upsampledHeight, state.upsampledWidth])
+                builder.slice(input_last_frame_features_upsampled, [i, 0, 0, 0], [1, 4, state.upsampledHeight, state.upsampledWidth])
             ],
             1
         )
@@ -590,7 +600,7 @@ let _buildFeatureReconstructionModel = (builder,
     return _builderDecoder1(builder, x_cat_2, decoder1Weight, decoder1Bias)
 }
 
-export let createComputeGraphOfReconstruction = (state: state, weights, biases) => {
+export let createComputeGraphOfReconstruction = (state: state, weights, biases): state => {
     let {
         builder,
         all_features_upsampled,

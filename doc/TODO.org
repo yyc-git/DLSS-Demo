@@ -65,6 +65,29 @@ run test
 
     pass run test
 
+    # run test, see output!
+
+    # weight,bias?
+    # resize input?
+    # model?
+    upsample?
+        use ``'linear'``
+        align_corners=False ?
+
+
+    model use zero upsample?
+
+    input_current_frame_upsampled error?
+
+    test one by one module
+
+    change:
+        height, width to 2, 1
+        fake image data
+
+
+* TODO optimize
+
 
 * TODO video
 

@@ -43,5 +43,5 @@ export type state = {
     all_features: Tensor<frameCount, 12, height, width>,
     all_features_upsampled: Tensor<frameCount, 12, upsampledHeight, upsampledWidth>,
     arr_last_features_reweighted: Array<Tensor<1, 12, upsampledHeight, upsampledWidth>>,
-    output: Tensor<1, 3, upsampledHeight, upsampledHeight>
+    output: Tensor<1, 3, upsampledHeight, upsampledWidth>
 }

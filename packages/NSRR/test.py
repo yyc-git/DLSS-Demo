@@ -11,7 +11,7 @@ import time
 
 
 def main(config):
-    logger = config.get_logger('test')
+    # logger = config.get_logger('test')
 
     # setup data_loader instances
     data_loader = getattr(module_data, config['data_loader']['type'])(
@@ -30,13 +30,13 @@ def main(config):
 
     # build model architecture
     model = config.init_obj('arch', module_arch)
-    logger.info(model)
+    # logger.info(model)
 
     # get function handles of loss and metrics
     loss_fn = getattr(module_loss, config['loss'])
     metric_fns = [getattr(module_metric, met) for met in config['metrics']]
 
-    logger.info('Loading checkpoint: {} ...'.format(config.resume))
+    # logger.info('Loading checkpoint: {} ...'.format(config.resume))
     checkpoint = torch.load(config.resume)
     state_dict = checkpoint['state_dict']
     if config['n_gpu'] > 1:
