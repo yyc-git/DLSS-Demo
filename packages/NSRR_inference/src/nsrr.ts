@@ -31,8 +31,6 @@ export let createState = ([width, height]): state => {
 }
 
 export let _prepareWeightForZeroUpsampling = <C extends number>(state: state, c: C): Filter<typeof c, typeof c, 4, 4> => {
-    // refer to: https://github.com/pytorch/pytorch/issues/7911#issuecomment-392835113
-
     let builder = state.builder
 
     let dimension = [1, 1, 4, 4]

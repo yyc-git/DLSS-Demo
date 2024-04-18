@@ -86,79 +86,10 @@ run test
         fake image data
 
 
-* TODO optimize
+# * TODO optimize
 
 
-* TODO video
+# * TODO video
 
-* TODO write article
+* DONE write article
 
-* TODO implement path tracer by webgpu + lbvh
-
-code in Wonder.js->master branch
-
-
-
-* TODO implement wspk denoiser with path tracer
-
-generate input(.png) for train and inference
-
-    motion vector .png should preprocess data:
-    1./ 10
-    2.to [0,1]  
-
-* TODO implement NSRR DLSS with path tracer
-
-generate input(.png) for train and inference
-
-    motion vector .png should preprocess data:
-    1./ 10
-    2.to [0,1]  
-
-
-
-# ** TODO change Motion input to accu current frame ClipPosition input
-
-#   vCurrentFrameClipPosition = getLastViewProjectionMatrix() * uModel.lastModelMatrix *
-#                       vec4(position, 1.0);
-
-# so utils.py-> backward_warp_motion->current_frame_grid/vgrid now = motion directly! 
-
-
-still use motion vector!
-
-
-** TODO train and inference should add backward warp step!
-
-add backward warp step:
-
-        all_motionVector_upsampled = all_flow_upsampled
-
-        list_previous_features_warped = []
-        for i in range(0, self.number_previous_frames):
-            accu_previous_feature_warped  = all_features_upsampled[:,:,i + 1,:,:]
-
-            for j in range(0, i):
-                accu_previous_feature_warped = self.motion_warping_function(
-                    accu_previous_feature_warped,
-                    all_motionVector_upsampled[:,:,i - j,:,:]
-                )
-
-            list_previous_features_warped.append(accu_previous_feature_warped)
-
-
-def backward_warp_motion(img: torch.Tensor, motion: torch.Tensor) -> torch.Tensor:
-    suppose img_grid = (img_grid_x(range: [0,1]), img_grid_y(range: [0,1])) in img, motion = (current_frame_grid_x - last_frame_grid_x, current_frame_grid_y - last_frame_grid_y) 
-
-    # 1.current_frame_grid = grid + motion
-    # ////2.wrap_img = current_frame_img
-    # 2.wrap_img = img
-    # 3.if(current_frame_grid in size)  wrap_img[current_frame_grid] = bilinear(img[grid])
-
-    1.last_frame_grid = (img_grid_x, img_grid_y) - motion[img_grid_x, img_grid_y] 
-    2.wrap_img = img
-    3.if(last_frame_grid in size)  wrap_img[img_grid_x, img_grid_y] = bilinear(img[last_frame_grid])
-
-
-
-* TODO publish Wonder.js v3.0.0-alpha.1 version
